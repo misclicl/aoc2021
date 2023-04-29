@@ -63,13 +63,12 @@ fn part2(data: &str) -> Result<i32, String> {
         .map(|line| Movement::from_str(line).unwrap())
         .collect();
 
-    let (pos_x, pos_y, aim) =
-        course_instructions
-            .iter()
-            .fold((0, 0, 0), |(pos_x, pos_y, aim), m| match m {
-                Movement::Horizontal(value) => (pos_x + value, pos_y + value * aim, aim),
-                Movement::Vertical(value) => (pos_x, pos_y, aim + value),
-            });
+    let (pos_x, pos_y, _) = course_instructions
+        .iter()
+        .fold((0, 0, 0), |(pos_x, pos_y, aim), m| match m {
+            Movement::Horizontal(value) => (pos_x + value, pos_y + value * aim, aim),
+            Movement::Vertical(value) => (pos_x, pos_y, aim + value),
+        });
 
     Ok(pos_x * pos_y)
 }

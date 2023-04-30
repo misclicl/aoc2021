@@ -1,3 +1,5 @@
+use bitvec::prelude::*;
+
 fn main() {
     let data = include_str!("data.txt");
     let result1 = match part1(data) {
@@ -16,103 +18,89 @@ fn main() {
     println!("result #2: {}", result2);
 }
 
-fn bits_slice_to_u32(bits: &[u8]) -> u32 {
-    bits.iter()
-        .map(|&bit| bit as u32)
-        .fold(0, |result, bit| (result << 1) | bit)
+fn bits_slice_to_u32(bits: &BitVec<u32, Msb0>) -> u32 {
+    bits.iter().fold(0, |result, bit| {
+        let bit_value = if *bit { 1 } else { 0 };
+        (result << 1) | bit_value
+    })
 }
 
-fn invert_binary_slice(bits: &[u8]) -> Vec<u8> {
-    bits.iter().map(|bit| bit ^ 1).collect()
+fn str_to_bit_array(input: &str) -> BitVec<u32, Msb0> {
+    let mut bit_vec = bitvec![u32, Msb0;];
+
+    input.chars().for_each(|char| {
+        let bit: bool = match char {
+            '0' => false,
+            '1' => true,
+            _ => panic!("Invalid character found when parsing measurement: {}", char),
+        };
+        bit_vec.push(bit);
+    });
+
+    bit_vec
 }
 
 fn part1(data: &str) -> Result<u32, String> {
-    let lines: Vec<&str> = data.lines().collect();
-    let mut gamma_bits: Vec<u8> = Vec::new();
+    let bit_lines: Vec<BitVec<u32, Msb0>> =
+        data.lines().map(|line| str_to_bit_array(line)).collect();
 
-    for (i, _) in lines[0].chars().enumerate() {
-        let mut counts = (0, 0);
-        for line in &lines {
-            match line.chars().nth(i).unwrap() {
-                '0' => counts.0 += 1,
-                '1' => counts.1 += 1,
-                _ => {}
-            }
-        }
+    let mut gamma_bits = bitvec![u32, Msb0;];
 
-        gamma_bits.push(if counts.0 > counts.1 { 0 } else { 1 });
+    for i in 0..bit_lines[0].len() {
+        let counts = bit_lines
+            .iter()
+            .fold((0, 0), |(zeros, ones), line| match line[i] {
+                true => (zeros, ones + 1),
+                false => (zeros + 1, ones),
+            });
+
+        gamma_bits.push(if counts.0 > counts.1 { false } else { true });
     }
 
-    let epsilon = bits_slice_to_u32(&invert_binary_slice(&gamma_bits));
     let gamma = bits_slice_to_u32(&gamma_bits);
+    let mut epsilon_bits = BitVec::<u32, Msb0>::repeat(true, gamma_bits.len());
+    epsilon_bits = epsilon_bits ^ gamma_bits;
+    let epsilon = bits_slice_to_u32(&epsilon_bits);
 
-    let product: u32 = gamma * epsilon;
-    Ok(product)
+    Ok(gamma * epsilon)
 }
 
-fn find_oxygen_measurement(mut list: Vec<&Vec<u8>>, positive_bias: bool) -> u32 {
-    // let mut list: Vec<&Vec<u8>> = measurements.iter().collect();
+fn part2(data: &str) -> Result<u32, String> {
+    let bit_lines: Vec<BitVec<u32, Msb0>> =
+        data.lines().map(|line| str_to_bit_array(line)).collect();
+
+    let oxygen_list: Vec<&BitVec<u32, Msb0>> = bit_lines.iter().collect();
+    let oxygen = find_oxygen_measurement(oxygen_list, true);
+    let co2_list: Vec<&BitVec<u32, Msb0>> = bit_lines.iter().collect();
+    let co2 = find_oxygen_measurement(co2_list, false);
+
+    Ok(oxygen * co2)
+}
+
+fn find_oxygen_measurement(mut list: Vec<&BitVec<u32, Msb0>>, positive_bias: bool) -> u32 {
     let mut current_idx = 0;
 
     while list.len() > 1 && current_idx < list[0].len() {
-        let mut counts = (0, 0);
-
-        for line in &list {
-            match line[current_idx] {
-                0 => counts.0 += 1,
-                1 => counts.1 += 1,
-                _ => {}
+        let counts = list.iter().fold((0, 0), |(zeros, ones), line| {
+            let current_bit = line[current_idx];
+            if current_bit == true {
+                (zeros, ones + 1)
+            } else {
+                (zeros + 1, ones)
             }
-        }
+        });
 
-        let max;
-
-        if positive_bias {
-            if counts.0 > counts.1 {
-                max = 0;
-            } else {
-                max = 1;
-            };
-        } else {
-            if counts.1 >= counts.0 {
-                max = 0;
-            } else {
-                max = 1;
-            };
-        }
+        let target_value = (counts.0 > counts.1) ^ positive_bias;
 
         list = list
             .into_iter()
-            .filter(|line| line[current_idx] == max)
-            .collect::<Vec<&Vec<u8>>>();
+            .filter(|line| line[current_idx] == target_value)
+            .collect();
 
         current_idx += 1;
     }
 
-    bits_slice_to_u32(list[0])
-}
-
-fn part2(data: &str) -> Result<u32, String> {
-    let byte_lines: Result<Vec<Vec<u8>>, _> = data
-        .lines()
-        .map(|line| {
-            line.chars()
-                .map(|char| {
-                    char.to_digit(10)
-                        .ok_or("Failed to parse byte")
-                        .map(|d| d as u8)
-                })
-                .collect()
-        })
-        .collect();
-
-    let byte_lines = byte_lines?;
-    let oxygen_list: Vec<&Vec<u8>> = byte_lines.iter().collect();
-    let oxygen = find_oxygen_measurement(oxygen_list, true);
-    let co2_list: Vec<&Vec<u8>> = byte_lines.iter().collect();
-    let co2 = find_oxygen_measurement(co2_list, false);
-
-    Ok(oxygen * co2)
+    bits_slice_to_u32(&list[0])
 }
 
 #[cfg(test)]

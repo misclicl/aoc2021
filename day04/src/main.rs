@@ -29,27 +29,14 @@ impl Board {
     }
 
     fn check_neighbors(&self, position: Pos) -> bool {
-        let mut v = true;
-        let mut h = true;
+        let vertical_match = (0..GRID_SIZE).all(|i| self.matched.contains(&Pos(position.0, i)));
+        let horizontal_match = (0..GRID_SIZE).all(|i| self.matched.contains(&Pos(i, position.1)));
 
-        for i in 0..GRID_SIZE {
-            let v_pos = Pos(position.0, i);
-            let h_pos = Pos(i, position.1);
-
-            if !self.matched.contains(&v_pos) {
-                v = false;
-            }
-
-            if !self.matched.contains(&h_pos) {
-                h = false;
-            }
-        }
-
-        return v || h;
+        return vertical_match || horizontal_match;
     }
 
-    fn mark(&mut self, value: &u32) -> bool {
-        let position = match self.cache.get(value) {
+    fn mark(&mut self, value: u32) -> bool {
+        let position = match self.cache.get(&value) {
             Some(pos) => pos,
             None => {
                 return false;
@@ -115,7 +102,7 @@ fn part1(data: &str) -> u32 {
 
     'outer: for number in numbers {
         for (i, board) in boards.iter_mut().enumerate() {
-            match board.mark(&number) {
+            match board.mark(number) {
                 true => {
                     winning_board = Some(i);
                     winning_number = Some(number);
@@ -127,19 +114,16 @@ fn part1(data: &str) -> u32 {
         }
     }
 
-    println!("winning board: {:?}", winning_board);
-    // println!("boards: {:?}", boards);
-
     let score = boards[winning_board.unwrap()].calc_score();
     let result = score * winning_number.unwrap();
-    println!("score: {}", result);
 
     result
 }
 
 fn main() {
     let data = include_str!("data.txt");
-    part1(data);
+    let result = part1(data);
+    println!("result#1: {}", result);
 }
 
 #[cfg(test)]

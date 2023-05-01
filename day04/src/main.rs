@@ -96,26 +96,38 @@ fn parse_data(data: &str) -> (Vec<u32>, Vec<Board>) {
 
 fn part1(data: &str) -> u32 {
     let (numbers, mut boards) = parse_data(&data);
-
-    let mut winning_board: Option<usize> = None;
-    let mut winning_number: Option<u32> = None;
+    let mut result = 0;
 
     'outer: for number in numbers {
-        for (i, board) in boards.iter_mut().enumerate() {
-            match board.mark(number) {
-                true => {
-                    winning_board = Some(i);
-                    winning_number = Some(number);
-                    println!("found board: {}", i);
-                    break 'outer;
-                }
-                false => {}
+        for board in boards.iter_mut() {
+            if board.mark(number) {
+                result = number * board.calc_score();
+                break 'outer;
             }
         }
     }
 
-    let score = boards[winning_board.unwrap()].calc_score();
-    let result = score * winning_number.unwrap();
+    result
+}
+
+fn part2(data: &str) -> u32 {
+    let (numbers, mut boards) = parse_data(&data);
+    let mut won: HashSet<usize> = HashSet::new();
+    let mut result = 0;
+
+    let boards_count = boards.len();
+    'outer: for number in numbers {
+        for (i, board) in boards.iter_mut().enumerate() {
+            if board.mark(number) && !won.contains(&i) {
+                won.insert(i);
+                result = number * board.calc_score();
+
+                if won.len() == boards_count {
+                    break 'outer;
+                }
+            }
+        }
+    }
 
     result
 }
@@ -124,6 +136,9 @@ fn main() {
     let data = include_str!("data.txt");
     let result = part1(data);
     println!("result#1: {}", result);
+    let data = include_str!("data.txt");
+    let result = part2(data);
+    println!("result#2: {}", result);
 }
 
 #[cfg(test)]
@@ -132,5 +147,10 @@ mod test {
     fn part1() {
         let result = crate::part1(include_str!("data_small.txt"));
         assert_eq!(result, 4512);
+    }
+    #[test]
+    fn part2() {
+        let result = crate::part2(include_str!("data_small.txt"));
+        assert_eq!(result, 1924);
     }
 }

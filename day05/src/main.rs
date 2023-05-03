@@ -15,7 +15,7 @@ struct Point {
 struct Pair(Point, Point);
 
 fn parse_tuple(s: &str) -> Result<Point, Box<dyn error::Error>> {
-    let nums: Vec<&str> = s.split(",").collect();
+    let nums: Vec<&str> = s.split(',').collect();
 
     if nums.len() != 2 {
         return Err(Box::new(Error::new(ErrorKind::Other, "invalid arguments")));
@@ -32,7 +32,7 @@ fn parse_line(s: &str) -> Result<Pair, Box<dyn error::Error>> {
     let point_a = points.next().unwrap();
     let point_b = points.next().unwrap();
 
-    if let Some(_) = points.next() {
+    if points.next().is_some() {
         return Err(Box::new(Error::new(
             ErrorKind::Other,
             "Line parsing failed: invalid arguments",
@@ -108,25 +108,19 @@ fn part1(data: &str) -> usize {
     let mut board: HashMap<Point, u32> = HashMap::new();
     let mut count: usize = 0;
 
-    pairs
-        .iter()
-        .filter_map(|pair| {
-            let points = line_to_points(pair);
-            return points;
-        })
-        .for_each(|points| {
-            for point in points {
-                let new_value = board.get(&point).unwrap_or(&0) + 1;
+    pairs.iter().filter_map(line_to_points).for_each(|points| {
+        for point in points {
+            let new_value = board.get(&point).unwrap_or(&0) + 1;
 
-                if new_value == 2 {
-                    count += 1;
-                }
-
-                board.insert(point, new_value);
+            if new_value == 2 {
+                count += 1;
             }
-        });
 
-    return count;
+            board.insert(point, new_value);
+        }
+    });
+
+    count
 }
 
 fn part2(data: &str) -> usize {
@@ -137,10 +131,7 @@ fn part2(data: &str) -> usize {
 
     pairs
         .iter()
-        .filter_map(|pair| {
-            let points = line_to_points_advanced(pair);
-            return points;
-        })
+        .filter_map(line_to_points_advanced)
         .for_each(|points| {
             for point in points {
                 let new_value = board.get(&point).unwrap_or(&0) + 1;
@@ -153,7 +144,7 @@ fn part2(data: &str) -> usize {
             }
         });
 
-    return count;
+    count
 }
 
 fn main() {

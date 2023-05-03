@@ -6,7 +6,7 @@ fn parse_data(data: &str) -> Vec<u8> {
     data.lines()
         .next()
         .unwrap()
-        .split(",")
+        .split(',')
         .map(|timer| timer.parse::<u8>().unwrap())
         .collect()
 }
@@ -47,7 +47,7 @@ fn part2(data: &str, iterations: u32) -> u64 {
         let mut count = 2;
         let mut current_node = list.iter_mut().rev();
 
-        while let Some(node) = current_node.next() {
+        for node in &mut current_node {
             if count == 0 {
                 *node += overflow;
                 break;

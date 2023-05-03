@@ -41,8 +41,7 @@ fn str_to_bit_array(input: &str) -> BitVec<u32, Msb0> {
 }
 
 fn part1(data: &str) -> Result<u32, String> {
-    let bit_lines: Vec<BitVec<u32, Msb0>> =
-        data.lines().map(|line| str_to_bit_array(line)).collect();
+    let bit_lines: Vec<BitVec<u32, Msb0>> = data.lines().map(str_to_bit_array).collect();
 
     let mut gamma_bits = bitvec![u32, Msb0;];
 
@@ -54,20 +53,19 @@ fn part1(data: &str) -> Result<u32, String> {
                 false => (zeros + 1, ones),
             });
 
-        gamma_bits.push(if counts.0 > counts.1 { false } else { true });
+        gamma_bits.push(counts.0 <= counts.1);
     }
 
     let gamma = bits_slice_to_u32(&gamma_bits);
     let mut epsilon_bits = BitVec::<u32, Msb0>::repeat(true, gamma_bits.len());
-    epsilon_bits = epsilon_bits ^ gamma_bits;
+    epsilon_bits ^= gamma_bits;
     let epsilon = bits_slice_to_u32(&epsilon_bits);
 
     Ok(gamma * epsilon)
 }
 
 fn part2(data: &str) -> Result<u32, String> {
-    let bit_lines: Vec<BitVec<u32, Msb0>> =
-        data.lines().map(|line| str_to_bit_array(line)).collect();
+    let bit_lines: Vec<BitVec<u32, Msb0>> = data.lines().map(str_to_bit_array).collect();
 
     let oxygen_list: Vec<&BitVec<u32, Msb0>> = bit_lines.iter().collect();
     let oxygen = find_oxygen_measurement(oxygen_list, true);
@@ -83,7 +81,7 @@ fn find_oxygen_measurement(mut list: Vec<&BitVec<u32, Msb0>>, positive_bias: boo
     while list.len() > 1 && current_idx < list[0].len() {
         let counts = list.iter().fold((0, 0), |(zeros, ones), line| {
             let current_bit = line[current_idx];
-            if current_bit == true {
+            if current_bit {
                 (zeros, ones + 1)
             } else {
                 (zeros + 1, ones)
@@ -92,15 +90,11 @@ fn find_oxygen_measurement(mut list: Vec<&BitVec<u32, Msb0>>, positive_bias: boo
 
         let target_value = (counts.0 > counts.1) ^ positive_bias;
 
-        list = list
-            .into_iter()
-            .filter(|line| line[current_idx] == target_value)
-            .collect();
-
+        list.retain(|&line| line[current_idx] == target_value);
         current_idx += 1;
     }
 
-    bits_slice_to_u32(&list[0])
+    bits_slice_to_u32(list[0])
 }
 
 #[cfg(test)]

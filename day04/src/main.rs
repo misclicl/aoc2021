@@ -16,8 +16,8 @@ impl Board {
         let mut cache: HashMap<u32, Pos> = HashMap::new();
 
         for y in 0..GRID_SIZE {
-            for x in 0..GRID_SIZE {
-                let entry = data[x][y];
+            for (x, row) in data.iter().enumerate() {
+                let entry = row[y];
                 cache.insert(entry, Pos(x, y));
             }
         }
@@ -32,7 +32,7 @@ impl Board {
         let vertical_match = (0..GRID_SIZE).all(|i| self.matched.contains(&Pos(position.0, i)));
         let horizontal_match = (0..GRID_SIZE).all(|i| self.matched.contains(&Pos(i, position.1)));
 
-        return vertical_match || horizontal_match;
+        vertical_match || horizontal_match
     }
 
     fn mark(&mut self, value: u32) -> bool {
@@ -66,7 +66,7 @@ fn parse_boards(board_data: Vec<&str>) -> Vec<Board> {
         .split(|line| line.is_empty())
         .map(|chunk| {
             chunk
-                .into_iter()
+                .iter()
                 .map(|row| {
                     row.split_whitespace()
                         .map(|value| value.parse::<u32>().unwrap())
@@ -95,7 +95,7 @@ fn parse_data(data: &str) -> (Vec<u32>, Vec<Board>) {
 }
 
 fn part1(data: &str) -> u32 {
-    let (numbers, mut boards) = parse_data(&data);
+    let (numbers, mut boards) = parse_data(data);
     let mut result = 0;
 
     'outer: for number in numbers {
@@ -111,7 +111,7 @@ fn part1(data: &str) -> u32 {
 }
 
 fn part2(data: &str) -> u32 {
-    let (numbers, mut boards) = parse_data(&data);
+    let (numbers, mut boards) = parse_data(data);
     let mut won: HashSet<usize> = HashSet::new();
     let mut result = 0;
 

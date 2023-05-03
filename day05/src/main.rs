@@ -53,26 +53,53 @@ fn line_to_points(pair: &Pair) -> Option<Vec<Point>> {
     let point1 = &pair.0;
     let point2 = &pair.1;
 
-    if pair.0.x == pair.1.x {
+    if point1.x == point2.x {
         let min_y = min(point1.y, point2.y);
         let max_y = max(point1.y, point2.y);
 
         return Some(
             (min_y..=max_y)
-                .map(|y| Point { x: pair.0.x, y })
+                .map(|y| Point { x: point1.x, y })
                 .collect::<Vec<Point>>(),
         );
-    } else if pair.0.y == pair.1.y {
+    } else if point1.y == point2.y {
         let min_x = min(point1.x, point2.x);
         let max_x = max(point1.x, point2.x);
         return Some(
             (min_x..=max_x)
-                .map(|x| Point { x, y: pair.0.y })
+                .map(|x| Point { x, y: point2.y })
                 .collect::<Vec<Point>>(),
         );
     }
 
     None
+}
+
+fn line_to_points_advanced(pair: &Pair) -> Option<Vec<Point>> {
+    let mut points = line_to_points(pair).unwrap_or(Vec::new());
+
+    let (left_most, right_most) = if pair.0.x < pair.1.x {
+        (&pair.0, &pair.1)
+    } else {
+        (&pair.1, &pair.0)
+    };
+
+    if (left_most.x - right_most.x).unsigned_abs() == (left_most.y - right_most.y).unsigned_abs() {
+        for x in left_most.x..=right_most.x {
+            let y = if left_most.y < right_most.y {
+                left_most.y + x - left_most.x
+            } else {
+                left_most.y - (x - left_most.x)
+            };
+            points.push(Point { x, y });
+        }
+    }
+
+    if points.is_empty() {
+        return None;
+    }
+
+    Some(points)
 }
 
 fn part1(data: &str) -> usize {
@@ -85,7 +112,33 @@ fn part1(data: &str) -> usize {
         .iter()
         .filter_map(|pair| {
             let points = line_to_points(pair);
-            // println!("Line: {:?}, Points: {:?}", pair, points);
+            return points;
+        })
+        .for_each(|points| {
+            for point in points {
+                let new_value = board.get(&point).unwrap_or(&0) + 1;
+
+                if new_value == 2 {
+                    count += 1;
+                }
+
+                board.insert(point, new_value);
+            }
+        });
+
+    return count;
+}
+
+fn part2(data: &str) -> usize {
+    let pairs = parse_lines(data);
+
+    let mut board: HashMap<Point, u32> = HashMap::new();
+    let mut count: usize = 0;
+
+    pairs
+        .iter()
+        .filter_map(|pair| {
+            let points = line_to_points_advanced(pair);
             return points;
         })
         .for_each(|points| {
@@ -108,6 +161,8 @@ fn main() {
     let data = include_str!("data.txt");
     let result = part1(data);
     println!("result#1: {}", result);
+    let result = part2(data);
+    println!("result#2: {}", result);
 }
 
 #[cfg(test)]
@@ -119,5 +174,11 @@ mod test {
         let data = include_str!("data_small.txt");
         let result = part1(data);
         assert_eq!(result, 5);
+    }
+    #[test]
+    fn part2_example() {
+        let data = include_str!("data_small.txt");
+        let result = part2(data);
+        assert_eq!(result, 12);
     }
 }

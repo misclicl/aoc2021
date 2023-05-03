@@ -1,3 +1,5 @@
+use std::collections::LinkedList;
+
 type State = Vec<u8>;
 
 fn parse_data(data: &str) -> Vec<u8> {
@@ -21,43 +23,50 @@ fn process_iteration(state: &mut State) {
     }
 }
 
-fn part1(data: &str, mut iterations: i32) -> usize {
+fn part1(data: &str, iterations: i32) -> usize {
     let mut state = parse_data(data);
-    while iterations > 0 {
-        println!("i: {}", iterations);
-        process_iteration(&mut state);
-        iterations -= 1;
-    }
-    println!("{:?}", state);
+    (0..iterations).for_each(|_| process_iteration(&mut state));
     state.len()
 }
 
 fn part2(data: &str, iterations: u32) -> u64 {
     let state = parse_data(data);
 
-    let mut list: Vec<u64> = Vec::from([0; 9]);
+    let mut list = [0; 9];
 
     for entry in state {
-        list[entry as usize] = list[entry as usize] + 1;
+        list[entry as usize] += 1;
     }
 
-    for _ in 0..iterations {
-        let overflow = list.remove(0);
+    let mut list: LinkedList<u64> = LinkedList::from_iter(list);
 
-        list.push(overflow);
-        list[6] += overflow;
+    for _ in 0..iterations {
+        let overflow = list.pop_front().unwrap();
+        list.push_back(overflow);
+
+        let mut count = 2;
+        let mut current_node = list.iter_mut().rev();
+
+        while let Some(node) = current_node.next() {
+            if count == 0 {
+                *node += overflow;
+                break;
+            }
+
+            count -= 1;
+        }
     }
 
     list.iter().sum()
 }
 
 fn main() {
-    let data = include_str!("data.txt");
+    let data = include_str!("data_small.txt");
 
     let result = part1(data, 12);
     println!("result#1: {}", result);
 
-    let result = part2(data, 256);
+    let result = part2(data, 12);
     println!("result#2: {}", result);
 }
 

@@ -7,21 +7,21 @@ fn parse_data(data: &str) -> Vec<i32> {
         .collect()
 }
 
+fn median(numbers: &mut Vec<i32>) -> i32 {
+    numbers.sort();
+    let mid = numbers.len() / 2;
+    numbers[mid]
+}
+
 fn part1(data: &str) -> u32 {
-    let initial_positions = parse_data(data);
+    let mut initial_positions = parse_data(data);
 
-    let min = *initial_positions.iter().min().unwrap() as usize;
-    let max = *initial_positions.iter().max().unwrap() as usize;
+    let median_position = median(&mut initial_positions);
 
-    (min..=max)
-        .map(|candidate| {
-            initial_positions
-                .iter()
-                .map(|position| (*position - candidate as i32).unsigned_abs())
-                .sum()
-        })
-        .min()
-        .unwrap()
+    initial_positions
+        .iter()
+        .map(|position| (*position - median_position).unsigned_abs())
+        .sum()
 }
 
 fn main() {

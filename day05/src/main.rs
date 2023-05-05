@@ -103,48 +103,46 @@ fn line_to_points_advanced(pair: &Pair) -> Option<Vec<Point>> {
 }
 
 fn part1(data: &str) -> usize {
-    let pairs = parse_lines(data);
-
     let mut board: HashMap<Point, u32> = HashMap::new();
-    let mut count: usize = 0;
 
-    pairs.iter().filter_map(line_to_points).for_each(|points| {
-        for point in points {
-            let new_value = board.get(&point).unwrap_or(&0) + 1;
+    let intersection_count =
+        parse_lines(data)
+            .iter()
+            .filter_map(line_to_points)
+            .fold(0, |mut acc, points| {
+                for point in points {
+                    let point_count = board.entry(point).or_insert(0);
+                    *point_count += 1;
 
-            if new_value == 2 {
-                count += 1;
-            }
+                    if *point_count == 2 {
+                        acc += 1;
+                    }
+                }
 
-            board.insert(point, new_value);
-        }
-    });
+                acc
+            });
 
-    count
+    intersection_count
 }
 
 fn part2(data: &str) -> usize {
-    let pairs = parse_lines(data);
-
     let mut board: HashMap<Point, u32> = HashMap::new();
-    let mut count: usize = 0;
 
-    pairs
+    parse_lines(data)
         .iter()
         .filter_map(line_to_points_advanced)
-        .for_each(|points| {
+        .fold(0, |mut acc, points| {
             for point in points {
-                let new_value = board.get(&point).unwrap_or(&0) + 1;
+                let new_value = board.entry(point).or_insert(0);
+                *new_value += 1;
 
-                if new_value == 2 {
-                    count += 1;
+                if *new_value == 2 {
+                    acc += 1;
                 }
-
-                board.insert(point, new_value);
             }
-        });
 
-    count
+            acc
+        })
 }
 
 fn main() {

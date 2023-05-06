@@ -89,10 +89,10 @@ impl HeightMap {
     }
 
     fn calc_risk_level(&self) -> u32 {
-        self.low_points.iter().fold(0, |acc, (y, x)| {
-            let value = &self.map[*y][*x];
-            acc + *value + 1
-        })
+        self.low_points
+            .iter()
+            .map(|(y, x)| self.map[*y][*x] + 1)
+            .sum()
     }
 
     fn calc_basins_risk_level(&self) -> u32 {

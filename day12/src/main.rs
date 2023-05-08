@@ -1,6 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    mem,
+    collections::{HashMap, VecDeque},
     str::FromStr,
 };
 
@@ -67,28 +66,28 @@ fn build_adjacency_list(connections: Vec<(String, String)>) -> AdjacencyList {
 
 fn count_connections(adjacency_list: &AdjacencyList, visits_allowed: u32) -> u32 {
     let mut path_count = 0;
-    let mut queue = VecDeque::new();
-    queue.push_back((&Node::Start, HashSet::new(), 0));
+    let mut queue: VecDeque<(&Node, Vec<&Node>, u32)> = VecDeque::new();
+    queue.push_back((&Node::Start, Vec::new(), 0));
 
     while let Some((node, path, repeated_visits_count)) = queue.pop_front() {
         for neighbor in adjacency_list.get(node).unwrap() {
-            // TODO: get rid of these clones
-            // I'm pretty sure I can simply use node references instead
             match neighbor {
                 Node::CaveS(_) => {
-                    if !path.contains(neighbor) {
+                    let new_repeated_visits_count = if path.contains(&neighbor) {
+                        repeated_visits_count + 1
+                    } else {
+                        repeated_visits_count
+                    };
+
+                    if new_repeated_visits_count <= visits_allowed {
                         let mut new_path = path.clone();
-                        new_path.insert(node);
-                        queue.push_back((neighbor, new_path, repeated_visits_count));
-                    } else if repeated_visits_count < visits_allowed {
-                        let mut new_path = path.clone();
-                        new_path.insert(node);
-                        queue.push_back((neighbor, new_path, repeated_visits_count + 1));
+                        new_path.push(node);
+                        queue.push_back((neighbor, new_path, new_repeated_visits_count));
                     }
                 }
                 Node::CaveM(_) => {
                     let mut new_path = path.clone();
-                    new_path.insert(node);
+                    new_path.push(node);
                     queue.push_back((neighbor, new_path, repeated_visits_count));
                 }
                 Node::End => {
@@ -122,9 +121,6 @@ fn main() {
     let input = include_str!("data.txt");
     let result = part2(input);
     println!("result#2: {result}");
-
-    assert_eq!(32, mem::size_of::<Node>());
-    assert_eq!(8, mem::size_of::<&Node>());
 }
 
 #[cfg(test)]

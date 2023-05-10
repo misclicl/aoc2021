@@ -26,34 +26,27 @@ impl PaperSheet {
         }
     }
 
-    pub fn fold_x_left(&mut self, fold_pos: u32) {
-        let fold_pos = self.size_x0 as u32 + fold_pos;
+    pub fn fold_x_left(&mut self, fold_pos: usize) {
+        let fold_pos_local = self.size_x0 + fold_pos;
         for point in &mut self.dots {
-            if (point.x as u32) < fold_pos {
-                let new_x = (fold_pos + fold_pos - point.x as u32) as usize;
-                *point = GridPos {
-                    x: new_x,
-                    y: point.y,
-                };
+            if point.x < fold_pos_local {
+                point.x = fold_pos_local * 2 - point.x;
             }
         }
 
-        self.size_x0 = fold_pos as usize + 1;
+        self.size_x0 = fold_pos_local + 1;
     }
 
-    pub fn fold_y_up(&mut self, fold_pos: u32) {
+    pub fn fold_y_up(&mut self, fold_pos: usize) {
         for point in &mut self.dots {
-            if (point.y as u32) > fold_pos {
-                let diff = point.y as u32 - fold_pos;
-                *point = GridPos {
-                    x: point.x,
-                    y: (fold_pos - diff) as usize,
-                };
+            if (point.y) > fold_pos {
+                point.y = 2 * fold_pos - point.y;
             }
         }
 
-        self.size_y = fold_pos as usize - 1;
+        self.size_y = fold_pos - 1;
     }
+
     fn count_dots(&self) -> u32 {
         self.dots
             .clone()
@@ -82,14 +75,11 @@ impl Display for PaperSheet {
             grid[point.y - min_y][point.x - min_x] = '#';
         }
 
-        for y in min_y..=max_y {
-            let mut line = String::new();
-            for x in 0..=max_x - min_x {
-                let value = grid[y][x];
-
-                line.push_str(&format!("{} ", value));
+        for row in grid {
+            for value in &row[0..=max_x - min_x] {
+                write!(f, "{} ", value)?;
             }
-            writeln!(f, "{}", line)?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -146,9 +136,7 @@ fn parse_input(data: &str) -> (PaperSheet, Vec<Instruction>) {
         }
     }
 
-    let paper = PaperSheet::new(points, size_y);
-
-    (paper, instructions)
+    (PaperSheet::new(points, size_y), instructions)
 }
 
 fn part1(data: &str) -> u32 {
@@ -156,8 +144,8 @@ fn part1(data: &str) -> u32 {
     let mut instructions = instructions.iter();
 
     match instructions.next().unwrap() {
-        Instruction::X(value) => paper_sheet.fold_x_left(*value),
-        Instruction::Y(value) => paper_sheet.fold_y_up(*value),
+        Instruction::X(value) => paper_sheet.fold_x_left(*value as usize),
+        Instruction::Y(value) => paper_sheet.fold_y_up(*value as usize),
     }
 
     paper_sheet.count_dots()
@@ -168,8 +156,8 @@ fn part2(data: &str) {
 
     for instruction in &instructions {
         match instruction {
-            Instruction::X(value) => paper_sheet.fold_x_left(*value),
-            Instruction::Y(value) => paper_sheet.fold_y_up(*value),
+            Instruction::X(value) => paper_sheet.fold_x_left(*value as usize),
+            Instruction::Y(value) => paper_sheet.fold_y_up(*value as usize),
         }
     }
 

@@ -10,11 +10,6 @@ struct Polymer<'a> {
     insertion_dict: &'a InsertionDict,
 }
 
-// ????
-fn ceil_div(a: u64, b: u64) -> u64 {
-    (a + b - 1) / b
-}
-
 impl<'a> Polymer<'a> {
     fn new(pattern: Vec<String>, insertion_dict: &'a InsertionDict) -> Self {
         let mut pair_counter: PairFrequency = PairFrequency::new();
@@ -30,6 +25,10 @@ impl<'a> Polymer<'a> {
             pair_counter,
             insertion_dict,
         }
+    }
+
+    fn ceil_div(a: u64, b: u64) -> u64 {
+        (a + b - 1) / b
     }
 
     fn step(&mut self) {
@@ -66,10 +65,26 @@ impl<'a> Polymer<'a> {
         let mut element_freq = HashMap::new();
 
         for (char, count) in character_freq {
-            element_freq.insert(char, ceil_div(count, 2));
+            element_freq.insert(char, Self::ceil_div(count, 2));
         }
 
         element_freq
+    }
+
+    fn develop(&mut self, iterations: u32) {
+        for _ in 0..iterations {
+            self.step();
+        }
+    }
+
+    fn count_result(&self) -> u64 {
+        let char_count = self.count_characters();
+
+        let (min, max) = char_count.iter().fold((u64::MAX, 0), |acc, (_, count)| {
+            (acc.0.min(*count), acc.1.max(*count))
+        });
+
+        max - min
     }
 }
 
@@ -77,21 +92,17 @@ fn parse_input(data: &str) -> (Pattern, InsertionDict) {
     let mut lines = data.lines();
     let mut dict: InsertionDict = HashMap::new();
 
-    let pattern = lines.next().unwrap().chars().collect::<Vec<_>>();
-    let mut pattern_vec = Vec::new();
+    let chars = lines.next().unwrap().chars().collect::<Vec<_>>();
+    let mut pattern = Vec::new();
 
-    for i in 0..pattern.len() - 1 {
-        pattern_vec.push(format!("{}{}", pattern[i], pattern[i + 1]));
+    for i in 0..chars.len() - 1 {
+        pattern.push(format!("{}{}", chars[i], chars[i + 1]));
     }
 
     lines.next();
-
-    // TODO: try to use references for strings here
-    // maybe it's worth it?
     lines.for_each(|l| {
         let parts = l.split(" -> ").collect::<Vec<_>>();
         let to_insert = parts[1];
-
         let part_1_chars = parts[0].chars().collect::<Vec<_>>();
 
         let result_a = format!("{}{to_insert}", part_1_chars[0]);
@@ -100,43 +111,23 @@ fn parse_input(data: &str) -> (Pattern, InsertionDict) {
         dict.insert(parts[0].to_owned(), (result_a, result_b));
     });
 
-    (pattern_vec, dict)
+    (pattern, dict)
 }
 
 fn part1(data: &str) -> u64 {
     let (pattern, insertion_map) = parse_input(data);
 
     let mut polymer = Polymer::new(pattern, &insertion_map);
-
-    for _ in 0..10 {
-        polymer.step();
-    }
-
-    let char_count = polymer.count_characters();
-
-    let (min, max) = char_count.iter().fold((u64::MAX, 0), |acc, (_, count)| {
-        (acc.0.min(*count), acc.1.max(*count))
-    });
-
-    max - min
+    polymer.develop(10);
+    polymer.count_result()
 }
 
 fn part2(data: &str) -> u64 {
     let (pattern, insertion_map) = parse_input(data);
 
     let mut polymer = Polymer::new(pattern, &insertion_map);
-
-    for _ in 0..40 {
-        polymer.step();
-    }
-
-    let char_count = polymer.count_characters();
-
-    let (min, max) = char_count.iter().fold((u64::MAX, 0), |acc, (_, count)| {
-        (acc.0.min(*count), acc.1.max(*count))
-    });
-
-    max - min
+    polymer.develop(40);
+    polymer.count_result()
 }
 
 fn main() {
@@ -146,6 +137,7 @@ fn main() {
     println!("result#1: {}", result);
 
     let result = part2(data);
+
     println!("result#2: {}", result);
 }
 

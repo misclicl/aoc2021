@@ -1,78 +1,143 @@
 use std::collections::HashMap;
 
-type Pattern = String;
-type InsertionDict = HashMap<String, String>;
+type Pattern = Vec<String>;
+type InsertionDict = HashMap<String, (String, String)>;
+type PairFrequency = HashMap<String, u64>;
+
+#[derive(Debug)]
+struct Polymer<'a> {
+    pair_counter: PairFrequency,
+    insertion_dict: &'a InsertionDict,
+}
+
+// ????
+fn ceil_div(a: u64, b: u64) -> u64 {
+    (a + b - 1) / b
+}
+
+impl<'a> Polymer<'a> {
+    fn new(pattern: Vec<String>, insertion_dict: &'a InsertionDict) -> Self {
+        let mut pair_counter: PairFrequency = PairFrequency::new();
+
+        pattern.iter().for_each(|pair| {
+            pair_counter
+                .entry(pair.to_owned())
+                .and_modify(|counter| *counter += 1)
+                .or_insert(1);
+        });
+
+        Polymer {
+            pair_counter,
+            insertion_dict,
+        }
+    }
+
+    fn step(&mut self) {
+        let mut new_pair_counter = HashMap::new();
+
+        self.pair_counter.iter().for_each(|(pair, v)| {
+            let new_insertions = self.insertion_dict.get(pair).unwrap();
+
+            new_pair_counter
+                .entry(new_insertions.0.to_owned())
+                .and_modify(|counter| *counter += *v)
+                .or_insert(*v);
+            new_pair_counter
+                .entry(new_insertions.1.to_owned())
+                .and_modify(|counter| *counter += *v)
+                .or_insert(*v);
+        });
+
+        self.pair_counter = new_pair_counter;
+    }
+
+    fn count_characters(&self) -> HashMap<char, u64> {
+        let mut character_freq = HashMap::new();
+
+        for (pair, count) in &self.pair_counter {
+            for char in pair.chars() {
+                character_freq
+                    .entry(char)
+                    .and_modify(|counter| *counter += *count)
+                    .or_insert(*count);
+            }
+        }
+
+        let mut element_freq = HashMap::new();
+
+        for (char, count) in character_freq {
+            element_freq.insert(char, ceil_div(count, 2));
+        }
+
+        element_freq
+    }
+}
 
 fn parse_input(data: &str) -> (Pattern, InsertionDict) {
     let mut lines = data.lines();
     let mut dict: InsertionDict = HashMap::new();
 
-    // let pattern = lines.next().unwrap().chars().collect::<Vec<_>>();
-    let pattern_str = lines.next().unwrap().to_owned();
+    let pattern = lines.next().unwrap().chars().collect::<Vec<_>>();
+    let mut pattern_vec = Vec::new();
+
+    for i in 0..pattern.len() - 1 {
+        pattern_vec.push(format!("{}{}", pattern[i], pattern[i + 1]));
+    }
+
     lines.next();
 
     // TODO: try to use references for strings here
     // maybe it's worth it?
     lines.for_each(|l| {
         let parts = l.split(" -> ").collect::<Vec<_>>();
-        dict.insert(String::from(parts[0]), String::from(parts[1]));
+        let to_insert = parts[1];
+
+        let part_1_chars = parts[0].chars().collect::<Vec<_>>();
+
+        let result_a = format!("{}{to_insert}", part_1_chars[0]);
+        let result_b = format!("{to_insert}{}", part_1_chars[1]);
+
+        dict.insert(parts[0].to_owned(), (result_a, result_b));
     });
 
-    (pattern_str, dict)
+    (pattern_vec, dict)
 }
 
-fn step(pattern: &String, dict: &InsertionDict) -> String {
-    //      NNCB
-    //      v v v
-    //     NCNBCHB
-    // ii   1 3 5
-    // it   0 1 2
-    // of   1 2 3
-    let mut new_pattern = pattern.clone();
-    let mut insertion_offset = 1;
+fn part1(data: &str) -> u64 {
+    let (pattern, insertion_map) = parse_input(data);
 
-    // println!("{dict:?}");
+    let mut polymer = Polymer::new(pattern, &insertion_map);
 
-    for i in 0..pattern.len() - 1 {
-        let pair_slice = &pattern[i..i + 2];
-        // println!("{pair_slice}");
-
-        let fallback = String::from("not_found");
-        let insertion = dict.get(pair_slice).unwrap_or(&fallback);
-        new_pattern.insert_str(i + insertion_offset, insertion);
-        insertion_offset += 1;
+    for _ in 0..10 {
+        polymer.step();
     }
 
-    new_pattern
-}
+    let char_count = polymer.count_characters();
 
-fn part1(data: &str) -> u32 {
-    let (pattern_str, pair_insertions) = parse_input(data);
-
-    let mut result = pattern_str;
-    let iterations_count = 10;
-
-    for _ in 0..iterations_count {
-        result = step(&result, &pair_insertions);
-    }
-
-    let mut frequency_counter: HashMap<char, u32> = HashMap::new();
-
-    for char in result.chars() {
-        frequency_counter
-            .entry(char)
-            .and_modify(|c| *c += 1)
-            .or_insert(0);
-    }
-
-    let (min, max) = frequency_counter
-        .iter()
-        .fold((u32::MAX, 0), |acc, (_, c)| (acc.0.min(*c), acc.1.max(*c)));
+    let (min, max) = char_count.iter().fold((u64::MAX, 0), |acc, (_, count)| {
+        (acc.0.min(*count), acc.1.max(*count))
+    });
 
     max - min
 }
 
-fn part2(data: &str) {}
+fn part2(data: &str) -> u64 {
+    let (pattern, insertion_map) = parse_input(data);
+
+    let mut polymer = Polymer::new(pattern, &insertion_map);
+
+    for _ in 0..40 {
+        polymer.step();
+    }
+
+    let char_count = polymer.count_characters();
+
+    let (min, max) = char_count.iter().fold((u64::MAX, 0), |acc, (_, count)| {
+        (acc.0.min(*count), acc.1.max(*count))
+    });
+
+    max - min
+}
 
 fn main() {
     let data = include_str!("data.txt");
@@ -80,7 +145,8 @@ fn main() {
     let result = part1(data);
     println!("result#1: {}", result);
 
-    part2(data);
+    let result = part2(data);
+    println!("result#2: {}", result);
 }
 
 #[cfg(test)]
@@ -91,5 +157,10 @@ mod tests {
     fn part1_example() {
         let data = include_str!("data_example.txt");
         assert_eq!(part1(data), 1588);
+    }
+    #[test]
+    fn part2_example() {
+        let data = include_str!("data_example.txt");
+        assert_eq!(part2(data), 2188189693529);
     }
 }

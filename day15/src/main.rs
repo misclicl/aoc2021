@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap},
+};
 use utils::print_matrix;
 
 type Grid = Vec<Vec<u32>>;
@@ -12,14 +15,6 @@ struct Position {
 struct PathFinder {
     grid: Grid,
 }
-
-#[derive(Debug)]
-struct DistanceEntry {
-    value: u32,
-    prev: Option<Position>,
-}
-
-type DangerTable = HashMap<Position, DistanceEntry>;
 
 fn get_matrix_size<T>(data: &[Vec<T>]) -> (usize, usize) {
     (data[0].len(), data.len())
@@ -54,35 +49,22 @@ impl PathFinder {
         get_matrix_size(&self.grid)
     }
 
-    fn reconstruct_path(&self, danger_table: &DangerTable) -> Vec<Position> {
+    fn reconstruct_path(&self, path_map: &HashMap<Position, Option<Position>>) -> Vec<Position> {
         let mut result: Vec<Position> = Vec::new();
 
         let grid_size = self.size();
-        let mut next_node: Option<Position> = Some(Position {
+        let mut next_node = Some(Position {
             x: grid_size.0 - 1,
             y: grid_size.1 - 1,
         });
 
         while let Some(node_position) = next_node {
-            let entry = danger_table.get(&node_position).unwrap();
             result.push(node_position);
-            next_node = entry.prev;
+            next_node = path_map.get(&node_position).cloned().unwrap_or(None);
         }
 
         result.reverse();
         result
-    }
-
-    fn print_danger_map(&self, danger_table: &DangerTable) {
-        let grid_size = self.size();
-
-        let mut printable = vec![vec![0; grid_size.0]; grid_size.1];
-
-        for (key, entry) in danger_table {
-            printable[key.y][key.x] = entry.value;
-        }
-
-        print_matrix(&printable);
     }
 
     /*
@@ -93,84 +75,67 @@ impl PathFinder {
 
     1 ---- 5 ---- 6
            |      |
-           3------3
-                  |
-                  1
+           3a-----3b
+           |      |
+           8------1
 
-    The shortest path is: 1-5-3-3-1 (overall weight is 13)
-    For this example, I'm going to perform a depth-first traversal.
+    The shortest path is: 1-5-3-3-1 (overall weight is 13).
 
-    node path_weight* prev_node
-    1    1            None
-    5    6            Some(1) (0, 0) -- note that i need to store coordinates here
-    6    12           Some(5)
-    3b   15           Some(6)
-    1    16           Some(17)
+    Dijkstra's algorithm uses a priority queue to always select the node with
+    the smallest known distance from the start. It updates the distances of its
+    neighbors, replacing the known distance if a shorter one is found.
+    This gradually reveals the shortest path to all nodes.
+
+    node path_weight* prev_node queue
+    ----------------------------------
+    1    0            None      [5]
+    5    5            Some(1)   [3a, 6]
+    3a   8            Some(5)   [3b, 6, 8]
+    3b   11           Some(3a)  [1, 6, 6, 8]
+    ...and so one
     -------------------------
-    ! The first result is found, but travelsal isn't over
-    (i need to visit each node of the graph)
-    -------------------------
-    3a   9            Some(5)
-    3b   12           Some(3a) <-- 12 < 15, updating the map
-    1    13           Some(3b) <-- 13 < 16, updating the map again
-
-    *path_weight is calculated as follows:
-    current_node_weigth + prev_node_weight
 
     Reconsructing path: 1 -> 3b -> 3a -> 5 -> 1
     */
-
     fn find_path(&self) -> u32 {
-        let mut visited: HashSet<Position> = HashSet::new();
-        let mut min_danger_levels: HashMap<Position, DistanceEntry> = HashMap::new();
-        min_danger_levels.insert(
-            Position { x: 0, y: 0 },
-            DistanceEntry {
-                value: self.grid[0][0],
-                prev: None,
-            },
-        );
+        let (size_x, size_y) = self.size();
+        let capacity = size_x * size_y;
 
-        let mut queue: VecDeque<Position> = VecDeque::new();
-        queue.push_back(Position { x: 0, y: 0 });
+        let mut queue: BinaryHeap<Reverse<(u32, Position)>> = BinaryHeap::with_capacity(capacity);
+        let mut prev_map: HashMap<Position, Option<Position>> = HashMap::with_capacity(capacity);
+        let mut weights: HashMap<Position, u32> = HashMap::with_capacity(capacity);
 
-        while let Some(position_current) = queue.pop_front() {
-            visited.insert(position_current);
+        let start_position = Position { x: 0, y: 0 };
+        weights.insert(start_position, 0);
+        queue.push(Reverse((0, start_position)));
 
-            let value_current = min_danger_levels.get(&position_current).unwrap().value;
+        while let Some(Reverse((weight, position_current))) = queue.pop() {
+            if let Some(&min_weight) = weights.get(&position_current) {
+                if weight > min_weight {
+                    continue;
+                }
+            }
 
             for neighbor in self.get_neighbors(&position_current) {
-                let candidate_value = value_current + self.get_cell_value(neighbor);
+                let weight_current = weights.get(&position_current).unwrap();
+                let weight_neighbor = weights.get(&neighbor).unwrap_or(&u32::MAX);
 
-                if let Some(existing_entry) = min_danger_levels.get_mut(&neighbor) {
-                    if existing_entry.value > candidate_value {
-                        existing_entry.prev = Some(position_current);
-                        existing_entry.value = candidate_value;
-                    }
-                } else {
-                    min_danger_levels.insert(
-                        neighbor,
-                        DistanceEntry {
-                            value: candidate_value,
-                            prev: Some(position_current),
-                        },
-                    );
-                }
+                let candidate_value = weight_current + self.get_cell_value(neighbor);
 
-                if !visited.contains(&neighbor) && !queue.contains(&neighbor) {
-                    queue.push_back(neighbor);
+                if candidate_value < *weight_neighbor {
+                    weights.insert(neighbor, candidate_value);
+                    prev_map.insert(neighbor, Some(position_current));
+                    queue.push(Reverse((candidate_value, neighbor)));
                 }
             }
         }
 
-        let path = self.reconstruct_path(&min_danger_levels);
-
-        PathFinder::vis_path(&self.grid, &path);
+        let path = self.reconstruct_path(&prev_map);
 
         path.iter().skip(1).map(|p| self.grid[p.y][p.x]).sum()
     }
 
-    fn vis_path(matrix: &[Vec<u32>], path: &[Position]) {
+    fn visualize_path(matrix: &[Vec<u32>], path: &[Position]) {
         let mut cloned: Vec<Vec<char>> = matrix
             .iter()
             .map(|row| {
@@ -186,6 +151,18 @@ impl PathFinder {
 
         print_matrix(&cloned);
     }
+
+    fn visualize_point_map(&self, danger_table: &HashMap<Position, u32>) {
+        let grid_size = self.size();
+
+        let mut printable = vec![vec![0; grid_size.0]; grid_size.1];
+
+        for (key, entry) in danger_table {
+            printable[key.y][key.x] = *entry;
+        }
+
+        print_matrix(&printable);
+    }
 }
 
 fn parse_input(data: &str) -> Vec<Vec<u32>> {
@@ -198,8 +175,8 @@ fn parse_input(data: &str) -> Vec<Vec<u32>> {
         .collect()
 }
 
-fn extend_matrix(matrix: &[Vec<u32>]) -> Vec<Vec<u32>> {
-    let (size_x, size_y) = get_matrix_size(matrix);
+fn extend_matrix(matrix: Vec<Vec<u32>>) -> Vec<Vec<u32>> {
+    let (size_x, size_y) = get_matrix_size(&matrix);
     let multiplier = 5;
     let mut matrix_extended = vec![vec![0; size_x * multiplier]; size_y * multiplier];
 
@@ -215,8 +192,6 @@ fn extend_matrix(matrix: &[Vec<u32>]) -> Vec<Vec<u32>> {
         }
     }
 
-    print_matrix(&matrix_extended);
-
     matrix_extended
 }
 
@@ -228,8 +203,7 @@ fn part1(data: &str) -> u32 {
 }
 
 fn part2(data: &str) -> u32 {
-    let matrix = parse_input(data);
-    let matrix_extended = extend_matrix(&matrix);
+    let matrix_extended = extend_matrix(parse_input(data));
 
     let path_finder = PathFinder::new(matrix_extended);
     path_finder.find_path()
@@ -241,9 +215,6 @@ fn main() {
     let res = part1(data);
     println!("result#1: {res}");
 
-    // let data = include_str!("data_tiny.txt");
-    // let data = include_str!("data_example.txt");
-    let data = include_str!("data.txt");
     let res = part2(data);
     println!("result#2: {res}");
 }

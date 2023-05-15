@@ -1,7 +1,6 @@
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
-};
+use std::collections::{HashMap, HashSet};
+
+use priority_queue::DoublePriorityQueue;
 use utils::print_matrix;
 
 type Grid = Vec<Vec<u32>>;
@@ -92,40 +91,35 @@ impl PathFinder {
     5    5            Some(1)   [3a, 6]
     3a   8            Some(5)   [3b, 6, 8]
     3b   11           Some(3a)  [1, 6, 6, 8]
-    ...and so one
+    ...and so on
     -------------------------
 
     Reconsructing path: 1 -> 3b -> 3a -> 5 -> 1
     */
     fn find_path(&self) -> u32 {
-        let (size_x, size_y) = self.size();
-        let capacity = size_x * size_y;
-
-        let mut queue: BinaryHeap<Reverse<(u32, Position)>> = BinaryHeap::with_capacity(capacity);
-        let mut prev_map: HashMap<Position, Option<Position>> = HashMap::with_capacity(capacity);
-        let mut weights: HashMap<Position, u32> = HashMap::with_capacity(capacity);
+        let mut pq = DoublePriorityQueue::new();
+        let mut prev_map: HashMap<Position, Option<Position>> = HashMap::new();
+        let mut weights: HashMap<Position, u32> = HashMap::new();
+        let mut visited = HashSet::new();
 
         let start_position = Position { x: 0, y: 0 };
         weights.insert(start_position, 0);
-        queue.push(Reverse((0, start_position)));
+        pq.push(start_position, 0);
 
-        while let Some(Reverse((weight, position_current))) = queue.pop() {
-            if let Some(&min_weight) = weights.get(&position_current) {
-                if weight > min_weight {
-                    continue;
-                }
-            }
+        while let Some((position_current, _)) = pq.pop_min() {
+            visited.insert(position_current);
+            let weight_current = *weights.get(&position_current).unwrap();
 
             for neighbor in self.get_neighbors(&position_current) {
-                let weight_current = weights.get(&position_current).unwrap();
-                let weight_neighbor = weights.get(&neighbor).unwrap_or(&u32::MAX);
-
+                let weight_neighbor = *weights.get(&neighbor).unwrap_or(&u32::MAX);
                 let candidate_value = weight_current + self.get_cell_value(neighbor);
 
-                if candidate_value < *weight_neighbor {
+                if candidate_value < weight_neighbor && !visited.contains(&neighbor) {
                     weights.insert(neighbor, candidate_value);
                     prev_map.insert(neighbor, Some(position_current));
-                    queue.push(Reverse((candidate_value, neighbor)));
+                    if pq.change_priority(&neighbor, candidate_value).is_none() {
+                        pq.push(neighbor, candidate_value);
+                    }
                 }
             }
         }

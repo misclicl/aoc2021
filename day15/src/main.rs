@@ -129,7 +129,7 @@ impl PathFinder {
         path.iter().skip(1).map(|p| self.grid[p.y][p.x]).sum()
     }
 
-    fn visualize_path(matrix: &[Vec<u32>], path: &[Position]) {
+    fn _visualize_path(matrix: &[Vec<u32>], path: &[Position]) {
         let mut cloned: Vec<Vec<char>> = matrix
             .iter()
             .map(|row| {
@@ -146,7 +146,7 @@ impl PathFinder {
         print_matrix(&cloned);
     }
 
-    fn visualize_point_map(&self, danger_table: &HashMap<Position, u32>) {
+    fn _visualize_point_map(&self, danger_table: &HashMap<Position, u32>) {
         let grid_size = self.size();
 
         let mut printable = vec![vec![0; grid_size.0]; grid_size.1];

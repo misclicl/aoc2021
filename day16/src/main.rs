@@ -67,9 +67,6 @@ fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> 
     let version = bits_to_decimal(&packet[idx..idx + 3]) as u32;
     let type_id = bits_to_decimal(&packet[idx + 3..idx + 6]) as u8;
 
-    println!("version: {version}");
-    println!("type_id: {type_id}");
-
     if type_id == 4 {
         let mut packet_end_pointer: usize = idx + 6;
         let mut data_bits = Vec::new();
@@ -172,13 +169,7 @@ fn calculate_version(packet: &Packet) -> u32 {
 }
 
 fn bits_to_decimal(bits: &[bool]) -> u64 {
-    let mut out = 0;
-
-    for &bit in bits {
-        out = (out << 1) | (bit as u64);
-    }
-
-    out
+    bits.iter().fold(0, |out, &bit| (out << 1) | (bit as u64))
 }
 
 fn calculate(packet: &Packet) -> Option<u64> {

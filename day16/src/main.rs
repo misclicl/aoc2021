@@ -1,5 +1,32 @@
 use std::collections::VecDeque;
 
+#[repr(u8)]
+#[derive(Debug)]
+enum OperatorType {
+    Sum = 0,
+    Product = 1,
+    Min = 2,
+    Max = 3,
+    Gt = 5,
+    Lt = 6,
+    Eq = 7,
+}
+
+impl OperatorType {
+    fn from_u8(val: u8) -> Option<Self> {
+        match val {
+            0 => Some(Self::Sum),
+            1 => Some(Self::Product),
+            2 => Some(Self::Min),
+            3 => Some(Self::Max),
+            5 => Some(Self::Gt),
+            6 => Some(Self::Lt),
+            7 => Some(Self::Eq),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 enum Packet {
     /*
@@ -11,7 +38,7 @@ enum Packet {
     */
     Literal {
         version: u32,
-        // data: u32,
+        data: u64,
     },
     /*
     Operator packet structure
@@ -30,15 +57,15 @@ enum Packet {
     */
     Operator {
         version: u32,
-        // length_type_id: u32,
+        tp: OperatorType,
         children: Vec<Packet>,
     },
 }
 
 fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> {
     let idx = *pointer;
-    let version = bits_to_decimal(&packet[idx..idx + 3]);
-    let type_id = bits_to_decimal(&packet[idx + 3..idx + 6]);
+    let version = bits_to_decimal(&packet[idx..idx + 3]) as u32;
+    let type_id = bits_to_decimal(&packet[idx + 3..idx + 6]) as u8;
 
     println!("version: {version}");
     println!("type_id: {type_id}");
@@ -63,7 +90,7 @@ fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> 
 
         return Ok(Packet::Literal {
             version,
-            // data: bits_to_decimal(&data_bits),
+            data: bits_to_decimal(&data_bits),
         });
     }
 
@@ -74,13 +101,8 @@ fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> 
         let subpacket_length = bits_to_decimal(&packet[idx + 7..idx + 22]) as usize;
         let mut subpacket_payload_start = idx + 22;
         let subpacket_payload_end = idx + 22 + subpacket_length;
-        println!(
-            "subpacket length: {}, {}:{}",
-            subpacket_length, subpacket_payload_start, subpacket_payload_end,
-        );
 
         while subpacket_payload_start < subpacket_payload_end {
-            println!("subpacket pointer: {}", subpacket_payload_start);
             let packet = parse_packet(packet, &mut subpacket_payload_start).unwrap();
             children.push(packet);
         }
@@ -89,20 +111,15 @@ fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> 
 
         return Ok(Packet::Operator {
             version,
-            // length_type_id,
+            tp: OperatorType::from_u8(type_id).unwrap(),
             children,
         });
     }
 
     let mut subpacket_count = bits_to_decimal(&packet[idx + 7..idx + 18]) as usize;
     let mut subpacket_payload_start = idx + 18;
-    println!(
-        "subpacket count: {}, start: {}",
-        subpacket_count, subpacket_payload_start,
-    );
 
     while subpacket_count > 0 {
-        println!("subpacket pointer: {}", subpacket_payload_start);
         let packet = parse_packet(packet, &mut subpacket_payload_start).unwrap();
         children.push(packet);
 
@@ -113,7 +130,7 @@ fn parse_packet(packet: &[bool], pointer: &mut usize) -> Result<Packet, String> 
 
     Ok(Packet::Operator {
         version,
-        // length_type_id,
+        tp: OperatorType::from_u8(type_id).unwrap(),
         children,
     })
 }
@@ -124,7 +141,6 @@ fn parse_message(packet_str: &str) -> Result<Packet, String> {
         .filter_map(|c| u8::from_str_radix(&c.to_string(), 16).ok())
         .flat_map(|num| (0..4).rev().map(move |i| (num & (1 << i)) != 0))
         .collect::<Vec<_>>();
-    println!("{binary:?}\nlen: {}", binary.len());
 
     let mut pointer = 0;
     parse_packet(&binary, &mut pointer)
@@ -155,14 +171,38 @@ fn calculate_version(packet: &Packet) -> u32 {
     result
 }
 
-fn bits_to_decimal(bits: &[bool]) -> u32 {
+fn bits_to_decimal(bits: &[bool]) -> u64 {
     let mut out = 0;
 
     for &bit in bits {
-        out = (out << 1) | (bit as u32);
+        out = (out << 1) | (bit as u64);
     }
 
     out
+}
+
+fn calculate(packet: &Packet) -> Option<u64> {
+    match packet {
+        Packet::Literal { data, .. } => Some(*data),
+        Packet::Operator { tp, children, .. } => match tp {
+            OperatorType::Sum => Some(children.iter().filter_map(calculate).sum()),
+            OperatorType::Product => Some(children.iter().filter_map(calculate).product()),
+            OperatorType::Min => children.iter().filter_map(calculate).min(),
+            OperatorType::Max => children.iter().filter_map(calculate).max(),
+            OperatorType::Gt | OperatorType::Lt | OperatorType::Eq => {
+                if let (Some(a), Some(b)) = (calculate(&children[0]), calculate(&children[1])) {
+                    Some(match tp {
+                        OperatorType::Gt if a > b => 1,
+                        OperatorType::Lt if a < b => 1,
+                        OperatorType::Eq if a == b => 1,
+                        _ => 0,
+                    })
+                } else {
+                    None
+                }
+            }
+        },
+    }
 }
 
 fn part1(packet_str: &str) -> u32 {
@@ -170,9 +210,16 @@ fn part1(packet_str: &str) -> u32 {
     calculate_version(&packet)
 }
 
+fn part2(packet_str: &str) -> u64 {
+    let packet = parse_message(packet_str).unwrap();
+    calculate(&packet).unwrap()
+}
+
 fn main() {
     let string = include_str!("data.txt");
     let result = part1(string);
+    println!("RESULT: {result}");
+    let result = part2(string);
     println!("RESULT: {result}");
 }
 
@@ -190,5 +237,32 @@ mod tests {
         assert_eq!(result, 23);
         let result = part1("A0016C880162017C3686B18A3D4780");
         assert_eq!(result, 31);
+    }
+    #[test]
+    fn part2_examples_sum() {
+        // sum
+        let result = part2("C200B40A82");
+        assert_eq!(result, 3);
+        // product
+        let result = part2("04005AC33890");
+        assert_eq!(result, 54);
+        // min
+        let result = part2("880086C3E88112");
+        assert_eq!(result, 7);
+        // max
+        let result = part2("CE00C43D881120");
+        assert_eq!(result, 9);
+        // greater than
+        let result = part2("D8005AC2A8F0");
+        assert_eq!(result, 1);
+        // less than
+        let result = part2("F600BC2D8F");
+        assert_eq!(result, 0);
+        // equals
+        let result = part2("9C005AC2F8F0");
+        assert_eq!(result, 0);
+        // composite
+        let result = part2("9C0141080250320F1802104A08");
+        assert_eq!(result, 1);
     }
 }
